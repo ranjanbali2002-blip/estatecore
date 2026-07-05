@@ -26,6 +26,7 @@ export function navForRole(role, workspace) {
   }
   admin.push(
     { to: '/agents', label: 'Agents', icon: '🧑‍💼' },
+    { to: '/integrations', label: 'Integrations', icon: '🔌' },
     { to: '/brand-settings', label: 'Brand', icon: '🎨' },
     { to: '/billing', label: 'Billing', icon: '💳' }
   );

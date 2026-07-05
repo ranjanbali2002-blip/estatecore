@@ -39,7 +39,15 @@ function validateEnv() {
     'RAZORPAY_PLAN_ENTERPRISE_ID',
   ];
 
-  const toCheck = paymentsEnabled ? [...required, ...razorpayRequired] : required;
+  // Meta (Facebook/Instagram) Lead Ads — only required when META_ENABLED === 'true'
+  const metaEnabled = process.env.META_ENABLED === 'true';
+  const metaRequired = ['META_APP_ID', 'META_APP_SECRET', 'META_VERIFY_TOKEN'];
+
+  const toCheck = [
+    ...required,
+    ...(paymentsEnabled ? razorpayRequired : []),
+    ...(metaEnabled ? metaRequired : []),
+  ];
 
   const missing = toCheck.filter((key) => {
     const v = process.env[key];
@@ -65,7 +73,7 @@ function validateEnv() {
     process.exit(1);
   }
 
-  logger.info('Environment validation passed.', { paymentsEnabled });
+  logger.info('Environment validation passed.', { paymentsEnabled, metaEnabled });
 }
 
 module.exports = validateEnv;

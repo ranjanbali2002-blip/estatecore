@@ -70,6 +70,20 @@ const workspaceSchema = new mongoose.Schema(
       callsLimit: { type: Number, default: 0 },
       resetDate: { type: Date },
     },
+
+    // Meta (Facebook/Instagram) Lead Ads connection — one Facebook Page per workspace.
+    // Leads from the connected Page's lead forms auto-create in this workspace.
+    meta: {
+      connected: { type: Boolean, default: false },
+      pageId: { type: String, index: true, sparse: true },
+      pageName: { type: String },
+      pageAccessToken: { type: String, select: false }, // long-lived page token, never sent to client
+      igBusinessId: { type: String },
+      defaultAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // auto-assign new leads
+      connectedAt: { type: Date },
+      lastLeadAt: { type: Date },
+      leadCount: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

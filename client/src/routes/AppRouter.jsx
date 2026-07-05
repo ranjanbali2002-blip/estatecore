@@ -23,6 +23,8 @@ const AgentDashboard = lazy(() => import('../pages/agent/AgentDashboard'));
 const BrandSettings = lazy(() => import('../pages/admin/BrandSettings'));
 const AgentManagement = lazy(() => import('../pages/admin/AgentManagement'));
 const AdminBilling = lazy(() => import('../pages/admin/AdminBilling'));
+const Integrations = lazy(() => import('../pages/admin/Integrations'));
+const MetaCallback = lazy(() => import('../pages/admin/MetaCallback'));
 
 const Leads = lazy(() => import('../pages/shared/Leads'));
 const Deals = lazy(() => import('../pages/shared/Deals'));
@@ -82,6 +84,8 @@ export default function AppRouter() {
           element={<ProtectedRoute><RoleRoute roles="admin"><PlanRoute feature="leaderboard" title="Leaderboard"><Leaderboard /></PlanRoute></RoleRoute></ProtectedRoute>}
         />
         <Route path="/agents" element={<ProtectedRoute><RoleRoute roles="admin"><AgentManagement /></RoleRoute></ProtectedRoute>} />
+        <Route path="/integrations" element={<ProtectedRoute><RoleRoute roles="admin"><Integrations /></RoleRoute></ProtectedRoute>} />
+        <Route path="/integrations/meta/callback" element={<ProtectedRoute><RoleRoute roles="admin"><MetaCallback /></RoleRoute></ProtectedRoute>} />
         <Route path="/brand-settings" element={<ProtectedRoute><RoleRoute roles="admin"><BrandSettings /></RoleRoute></ProtectedRoute>} />
         <Route path="/billing" element={<ProtectedRoute><RoleRoute roles="admin"><AdminBilling /></RoleRoute></ProtectedRoute>} />
 

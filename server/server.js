@@ -25,6 +25,8 @@ const { scheduleTaskReminders } = require('./jobs/taskReminders');
 
 // Controllers/routes
 const billingController = require('./controllers/billingController');
+const metaController = require('./controllers/metaController');
+const metaRoutes = require('./routes/meta');
 const authRoutes = require('./routes/auth');
 const architectRoutes = require('./routes/architect');
 const workspaceRoutes = require('./routes/workspace');
@@ -51,6 +53,11 @@ app.use(
 
 // Razorpay webhook needs the RAW body for signature verification — mount BEFORE json
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), billingController.webhook);
+
+// Meta Lead Ads webhook — GET verifies the subscription, POST needs the RAW body
+// for X-Hub-Signature-256 verification (mount BEFORE json)
+app.get('/api/webhooks/meta-leads', metaController.webhookVerify);
+app.post('/api/webhooks/meta-leads', express.raw({ type: '*/*' }), metaController.webhookReceive);
 
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
@@ -86,6 +93,7 @@ app.get('/api/health', (req, res) => {
 // ---- Routes ----
 app.use('/api/auth', authRoutes);
 app.use('/api/architect', architectRoutes);
+app.use('/api/workspace/meta', metaRoutes);
 app.use('/api/workspace', workspaceRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/leads', leadRoutes);

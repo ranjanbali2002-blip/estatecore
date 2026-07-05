@@ -127,6 +127,42 @@ the `/portal/:token` route work.
 
 ---
 
+## Meta (Facebook/Instagram) Lead Ads — turning it on later
+
+The integration is built and shipped **dormant** (gated behind `META_ENABLED=false`).
+When you're ready to test with your own Facebook Page:
+
+**1. Create a Meta app** at https://developers.facebook.com → **Create App** → type **Business**.
+- Add the **Facebook Login** and **Webhooks** products.
+- Note your **App ID** and **App Secret** (Settings → Basic).
+
+**2. Add these env vars on Render** (then it redeploys):
+```
+META_ENABLED=true
+META_APP_ID=<your app id>
+META_APP_SECRET=<your app secret>
+META_VERIFY_TOKEN=<any random string you invent, e.g. estatecore_verify_931>
+META_GRAPH_VERSION=v21.0
+```
+
+**3. Configure the webhook** in the Meta app → **Webhooks** → **Page**:
+- Callback URL: `https://estatecore-api-r1rb.onrender.com/api/webhooks/meta-leads`
+- Verify Token: the exact `META_VERIFY_TOKEN` value above
+- Subscribe to the **`leadgen`** field.
+
+**4. OAuth redirect** — in **Facebook Login → Settings**, add this Valid OAuth Redirect URI:
+- `https://estatecore-ten.vercel.app/integrations/meta/callback`
+
+**5. Connect in-app** — log in as an **Admin** → **Integrations** → **Connect Facebook** →
+authorize → pick your Page. New lead-form submissions now auto-create leads in that workspace.
+
+- While your Meta app is in **Development mode**, only Pages/accounts you own (or add as
+  testers) will work — no App Review needed for testing.
+- To let **other agencies** connect their own Pages, submit the app for **App Review**
+  (permission: `leads_retrieval`) + **Business Verification**. No code changes needed.
+- Advanced/testing without full OAuth: Integrations → *"connect with a Page token"* lets you
+  paste a Page ID + long-lived Page Access Token from the Graph API Explorer.
+
 ## Notes & gotchas
 
 - **Render free tier sleeps** after ~15 min of inactivity; the first request after
