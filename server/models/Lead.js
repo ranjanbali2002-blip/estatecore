@@ -58,6 +58,8 @@ const leadSchema = new mongoose.Schema(
     },
     notes: [noteSchema],
     callLog: [callLogSchema],
+    // Unmapped lead-form questions (e.g. from Meta Lead Ads custom questions)
+    customFields: { type: Map, of: String, default: undefined },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

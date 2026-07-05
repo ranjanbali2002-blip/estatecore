@@ -19,6 +19,9 @@ export default function Integrations() {
   const [connecting, setConnecting] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [manual, setManual] = useState({ pageId: '', pageName: '', pageAccessToken: '' });
+  const [forms, setForms] = useState(null);
+  const [selectedForms, setSelectedForms] = useState([]);
+  const [savingForms, setSavingForms] = useState(false);
 
   async function load() {
     try {
@@ -28,6 +31,7 @@ export default function Integrations() {
       ]);
       setStatus(s.data.data);
       setAgents(a.data.data.items || []);
+      if (s.data.data.connected) loadForms();
     } catch (err) {
       toast.error(errMsg(err, 'Could not load integrations'));
     } finally {
@@ -35,6 +39,32 @@ export default function Integrations() {
     }
   }
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function loadForms() {
+    try {
+      const { data } = await api.get('/workspace/meta/forms');
+      setForms(data.data.forms);
+      setSelectedForms(data.data.selected || []);
+    } catch (err) {
+      setForms([]); // page may have no forms yet — not fatal
+    }
+  }
+
+  function toggleForm(id) {
+    setSelectedForms((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  }
+
+  async function saveForms() {
+    setSavingForms(true);
+    try {
+      await api.put('/workspace/meta/forms', { formIds: selectedForms });
+      toast.success(selectedForms.length ? 'Capturing selected forms only' : 'Capturing all forms');
+    } catch (err) {
+      toast.error(errMsg(err, 'Could not save form selection'));
+    } finally {
+      setSavingForms(false);
+    }
+  }
 
   async function connectFacebook() {
     setConnecting(true);
@@ -135,6 +165,33 @@ export default function Integrations() {
                   <option value="" className="bg-card">Unassigned (Admin reviews)</option>
                   {agents.map((a) => <option key={a.id} value={a.id} className="bg-card">{a.name}</option>)}
                 </Select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm text-white/70">Lead forms to capture</label>
+                  {forms && forms.length > 0 && (
+                    <Button size="sm" variant="secondary" onClick={saveForms} loading={savingForms}>Save</Button>
+                  )}
+                </div>
+                {forms === null ? (
+                  <p className="text-white/40 text-sm">Loading forms…</p>
+                ) : forms.length === 0 ? (
+                  <p className="text-white/40 text-sm">No lead forms found on this Page yet.</p>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {forms.map((f) => (
+                        <label key={f.id} className="flex items-center gap-3 glass rounded-lg px-3 py-2 cursor-pointer">
+                          <input type="checkbox" checked={selectedForms.includes(f.id)} onChange={() => toggleForm(f.id)} />
+                          <span className="text-sm text-white/85 flex-1">{f.name}</span>
+                          <Badge color={f.status === 'ACTIVE' ? 'green' : 'gray'}>{f.status}</Badge>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-white/40 mt-2">Leave all unchecked to capture leads from every form.</p>
+                  </>
+                )}
               </div>
 
               <Button variant="danger" onClick={disconnect}>Disconnect</Button>

@@ -17,6 +17,8 @@ router.get('/connect-url', requireMetaEnabled, ctrl.connectUrl);
 router.post('/exchange', requireMetaEnabled, ctrl.exchangeCode);
 router.post('/select-page', requireMetaEnabled, ctrl.selectPage);
 router.post('/manual', requireMetaEnabled, ctrl.manualConnect);
+router.get('/forms', requireMetaEnabled, ctrl.getForms);
+router.put('/forms', requireMetaEnabled, ctrl.setForms);
 router.put('/default-agent', ctrl.setDefaultAgent);
 router.post('/disconnect', ctrl.disconnect);
 

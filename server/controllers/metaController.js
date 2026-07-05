@@ -3,10 +3,12 @@ const Workspace = require('../models/Workspace');
 const User = require('../models/User');
 const Lead = require('../models/Lead');
 const MetaLeadEvent = require('../models/MetaLeadEvent');
+const FailedWebhook = require('../models/FailedWebhook');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const logger = require('../utils/logger');
 const meta = require('../utils/meta');
+const { encrypt, decrypt } = require('../utils/secretCrypto');
 
 const REDIRECT_PATH = '/integrations/meta/callback';
 
@@ -100,8 +102,9 @@ const selectPage = asyncHandler(async (req, res) => {
   ws.meta.connected = true;
   ws.meta.pageId = page.id;
   ws.meta.pageName = page.name;
-  ws.meta.pageAccessToken = page.accessToken;
+  ws.meta.pageAccessToken = encrypt(page.accessToken); // AES-256-GCM at rest
   ws.meta.igBusinessId = page.igBusinessId || undefined;
+  ws.meta.formIds = Array.isArray(req.body.formIds) ? req.body.formIds : [];
   ws.meta.connectedAt = new Date();
   await ws.save();
 
@@ -122,7 +125,8 @@ const manualConnect = asyncHandler(async (req, res) => {
   ws.meta.connected = true;
   ws.meta.pageId = pageId;
   ws.meta.pageName = req.body.pageName || `Page ${pageId}`;
-  ws.meta.pageAccessToken = pageAccessToken;
+  ws.meta.pageAccessToken = encrypt(pageAccessToken); // AES-256-GCM at rest
+  ws.meta.formIds = Array.isArray(req.body.formIds) ? req.body.formIds : [];
   ws.meta.connectedAt = new Date();
   await ws.save();
   res.json({ success: true, data: { connected: true, pageName: ws.meta.pageName } });
@@ -143,11 +147,31 @@ const setDefaultAgent = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { defaultAgentId: ws.meta.defaultAgentId || null } });
 });
 
+// GET /api/workspace/meta/forms — list Lead Ad forms on the connected Page (admin)
+const getForms = asyncHandler(async (req, res) => {
+  const ws = await Workspace.findById(req.workspace._id).select('+meta.pageAccessToken');
+  if (!ws.meta?.connected || !ws.meta?.pageAccessToken) {
+    throw AppError.badRequest('Connect a Facebook Page first');
+  }
+  const forms = await meta.getPageForms(ws.meta.pageId, decrypt(ws.meta.pageAccessToken));
+  res.json({ success: true, data: { forms, selected: ws.meta.formIds || [] } });
+});
+
+// PUT /api/workspace/meta/forms — set which form ids to capture ({ formIds: [] } = all) (admin)
+const setForms = asyncHandler(async (req, res) => {
+  const formIds = Array.isArray(req.body.formIds) ? req.body.formIds.map(String) : [];
+  const ws = await Workspace.findById(req.workspace._id);
+  if (!ws.meta?.connected) throw AppError.badRequest('Connect a Facebook Page first');
+  ws.meta.formIds = formIds;
+  await ws.save();
+  res.json({ success: true, data: { formIds: ws.meta.formIds } });
+});
+
 // POST /api/workspace/meta/disconnect (admin)
 const disconnect = asyncHandler(async (req, res) => {
   const ws = await Workspace.findById(req.workspace._id).select('+meta.pageAccessToken');
   if (ws.meta?.pageId && ws.meta?.pageAccessToken) {
-    await meta.unsubscribePage(ws.meta.pageId, ws.meta.pageAccessToken);
+    await meta.unsubscribePage(ws.meta.pageId, decrypt(ws.meta.pageAccessToken));
   }
   ws.meta.connected = false;
   ws.meta.pageId = undefined;
@@ -155,6 +179,7 @@ const disconnect = asyncHandler(async (req, res) => {
   ws.meta.pageAccessToken = undefined;
   ws.meta.igBusinessId = undefined;
   ws.meta.defaultAgentId = undefined;
+  ws.meta.formIds = [];
   await ws.save();
   res.json({ success: true, data: { connected: false } });
 });
@@ -202,11 +227,20 @@ const webhookReceive = asyncHandler(async (req, res) => {
         await processLead(v);
       } catch (err) {
         logger.error('Meta lead processing failed', { leadgenId: v.leadgen_id, error: err.message });
+        // Mark the event errored (keeps idempotency) AND persist the raw payload for recovery.
         await MetaLeadEvent.updateOne(
           { leadgenId: v.leadgen_id },
           { $setOnInsert: { leadgenId: v.leadgen_id, status: 'error', error: err.message } },
           { upsert: true }
         ).catch(() => {});
+        await FailedWebhook.create({
+          source: 'meta',
+          leadgenId: v.leadgen_id,
+          pageId: v.page_id,
+          formId: v.form_id,
+          error: err.message,
+          rawPayload: v,
+        }).catch((e) => logger.error('Could not persist FailedWebhook', { error: e.message }));
       }
     }
   }
@@ -230,9 +264,16 @@ async function processLead(value) {
     return;
   }
 
-  const detail = await meta.getLeadData(leadgenId, ws.meta.pageAccessToken);
+  // Form filtering — if the tenant selected specific forms, ignore leads from others.
+  if (Array.isArray(ws.meta.formIds) && ws.meta.formIds.length && !ws.meta.formIds.includes(String(value.form_id))) {
+    await MetaLeadEvent.create({ leadgenId, workspaceId: ws._id, pageId, formId: value.form_id, status: 'skipped', error: 'form not tracked' });
+    return;
+  }
+
+  const detail = await meta.getLeadData(leadgenId, decrypt(ws.meta.pageAccessToken));
   const mapped = meta.mapLeadFields(detail.field_data);
   const source = String(detail.platform || '').toLowerCase() === 'ig' ? 'Instagram' : 'Facebook';
+  const hasCustom = mapped.customFields && Object.keys(mapped.customFields).length > 0;
 
   const lead = await Lead.create({
     workspaceId: ws._id,
@@ -244,9 +285,8 @@ async function processLead(value) {
     locationInterest: mapped.locationInterest,
     source,
     status: 'New',
-    notes: mapped.rawNotes
-      ? [{ text: `Captured from Meta Lead Ad:\n${mapped.rawNotes}`, createdBy: ws.adminId, createdAt: new Date() }]
-      : [],
+    customFields: hasCustom ? mapped.customFields : undefined,
+    notes: [{ text: `Captured from Meta Lead Ad (${source})`, createdBy: ws.adminId, createdAt: new Date() }],
     createdBy: ws.adminId,
   });
 
@@ -274,6 +314,8 @@ module.exports = {
   selectPage,
   manualConnect,
   setDefaultAgent,
+  getForms,
+  setForms,
   disconnect,
   webhookVerify,
   webhookReceive,

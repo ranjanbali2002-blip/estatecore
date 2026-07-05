@@ -128,26 +128,49 @@ async function getLeadData(leadgenId, pageAccessToken) {
   return data;
 }
 
+/** List the Lead Ad forms on a Page (id, name, status). */
+async function getPageForms(pageId, pageAccessToken) {
+  const data = await graphGet(`/${pageId}/leadgen_forms`, {
+    access_token: pageAccessToken,
+    fields: 'id,name,status',
+    limit: 100,
+  });
+  return (data.data || []).map((f) => ({ id: f.id, name: f.name, status: f.status }));
+}
+
+const MATCHERS = {
+  name: ['full_name', 'full name', 'name'],
+  phone: ['phone', 'mobile', 'contact_number', 'contact'],
+  email: ['email'],
+  budget: ['budget', 'price'],
+  location: ['location', 'locality', 'city', 'area', 'preferred_city', 'neighbourhood', 'neighborhood'],
+};
+
 /**
  * Maps Meta field_data ([{name, values:[]}]) to EstateCore lead fields.
- * Meta field names vary, so we match common patterns and keep the rest in notes.
+ * Known questions map to real columns; every other question is preserved
+ * verbatim in `customFields` (nothing is dropped).
  */
 function mapLeadFields(fieldData = []) {
-  const get = (matchers) => {
-    const f = fieldData.find((x) => matchers.some((m) => x.name?.toLowerCase().includes(m)));
+  const matched = new Set();
+  const first = (keys) => {
+    const f = fieldData.find((x) => keys.some((k) => x.name?.toLowerCase().includes(k)));
+    if (f) matched.add(f.name);
     return f?.values?.[0];
   };
-  const name = get(['full_name', 'name']) || 'Meta Lead';
-  const phone = get(['phone', 'mobile', 'contact']) || '';
-  const email = get(['email']) || '';
-  const budget = Number(String(get(['budget', 'price']) || '').replace(/[^0-9]/g, '')) || 0;
-  const location = get(['location', 'city', 'area']) || '';
 
-  const extraNotes = fieldData
-    .map((f) => `${f.name}: ${(f.values || []).join(', ')}`)
-    .join('\n');
+  const name = first(MATCHERS.name) || 'Meta Lead';
+  const phone = first(MATCHERS.phone) || '';
+  const email = first(MATCHERS.email) || '';
+  const budget = Number(String(first(MATCHERS.budget) || '').replace(/[^0-9]/g, '')) || 0;
+  const location = first(MATCHERS.location) || '';
 
-  return { name, phone, email, budget, locationInterest: location, rawNotes: extraNotes };
+  const customFields = {};
+  for (const f of fieldData) {
+    if (!matched.has(f.name)) customFields[f.name] = (f.values || []).join(', ');
+  }
+
+  return { name, phone, email, budget, locationInterest: location, customFields };
 }
 
 module.exports = {
@@ -161,5 +184,6 @@ module.exports = {
   subscribePageToLeadgen,
   unsubscribePage,
   getLeadData,
+  getPageForms,
   mapLeadFields,
 };

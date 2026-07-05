@@ -143,7 +143,12 @@ META_APP_ID=<your app id>
 META_APP_SECRET=<your app secret>
 META_VERIFY_TOKEN=<any random string you invent, e.g. estatecore_verify_931>
 META_GRAPH_VERSION=v21.0
+META_ENCRYPTION_KEY=<32+ char random string — encrypts stored Page tokens>
 ```
+Generate the encryption key with:
+`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+> Page Access Tokens are stored **AES-256-GCM encrypted** using this key. If you ever
+> rotate `META_ENCRYPTION_KEY`, connected tenants must reconnect their Page.
 
 **3. Configure the webhook** in the Meta app → **Webhooks** → **Page**:
 - Callback URL: `https://estatecore-api-r1rb.onrender.com/api/webhooks/meta-leads`
@@ -162,6 +167,18 @@ authorize → pick your Page. New lead-form submissions now auto-create leads in
   (permission: `leads_retrieval`) + **Business Verification**. No code changes needed.
 - Advanced/testing without full OAuth: Integrations → *"connect with a Page token"* lets you
   paste a Page ID + long-lived Page Access Token from the Graph API Explorer.
+- **Restrict to specific forms:** after connecting, the Integrations page lists the Page's Lead
+  Ad forms — tick the ones to capture (leave all unticked = capture every form).
+
+**Testing the webhook** (Meta App → Webhooks → Page → `leadgen` → **Test**):
+- Meta sends a sample `leadgen` payload to `/api/webhooks/meta-leads`. It's signature-verified,
+  so the test button works only with real credentials configured.
+- A real end-to-end test: use Meta's **Lead Ads Testing Tool**
+  (https://developers.facebook.com/tools/lead-ads-testing) → pick your Page + form →
+  **Create Lead** → within seconds it appears under **Leads** (source: Facebook/Instagram) in
+  that workspace. Custom form questions land in the lead's `customFields`.
+- Any lead that fails to map/create is saved to the **FailedWebhook** collection (raw payload +
+  error) so nothing is lost — inspect it in MongoDB and reprocess if needed.
 
 ## Notes & gotchas
 

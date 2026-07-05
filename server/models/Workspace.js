@@ -88,8 +88,9 @@ const workspaceSchema = new mongoose.Schema(
       connected: { type: Boolean, default: false },
       pageId: { type: String, index: true, sparse: true },
       pageName: { type: String },
-      pageAccessToken: { type: String, select: false }, // long-lived page token, never sent to client
+      pageAccessToken: { type: String, select: false }, // AES-256-GCM encrypted; never sent to client
       igBusinessId: { type: String },
+      formIds: { type: [String], default: [] }, // if non-empty, only capture leads from these form ids
       defaultAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // auto-assign new leads
       connectedAt: { type: Date },
       lastLeadAt: { type: Date },
