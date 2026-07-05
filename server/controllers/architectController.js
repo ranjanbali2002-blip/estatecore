@@ -7,7 +7,7 @@ const Task = require('../models/Task');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
 const { sendEmail } = require('../utils/email');
-const { trialWelcome, trialExtended } = require('../utils/emailTemplates');
+const { trialWelcome, trialExtended, trialApprovedSelf, trialRejected } = require('../utils/emailTemplates');
 const { getAgentLimit, PLANS } = require('../utils/plans');
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -17,7 +17,7 @@ const dashboard = asyncHandler(async (req, res) => {
   const now = new Date();
   const weekAhead = new Date(now.getTime() + 7 * DAY);
 
-  const [totalActive, trialWorkspaces, expiringThisWeek, planAgg, recentTrials, expiringSoon] =
+  const [totalActive, trialWorkspaces, expiringThisWeek, planAgg, recentTrials, expiringSoon, pendingRequests] =
     await Promise.all([
       Workspace.countDocuments({ status: 'active' }),
       Workspace.countDocuments({ 'trial.enabled': true, 'trial.expiresAt': { $gt: now } }),
@@ -38,6 +38,7 @@ const dashboard = asyncHandler(async (req, res) => {
         .sort({ 'trial.expiresAt': 1 })
         .populate('adminId', 'name email')
         .lean(),
+      Workspace.countDocuments({ status: 'pending' }),
     ]);
 
   // MRR — 0 in Phase 1 (no live payments). Real once PAYMENTS_ENABLED.
@@ -70,6 +71,7 @@ const dashboard = asyncHandler(async (req, res) => {
         trialWorkspaces,
         expiringThisWeek,
         mrr,
+        pendingRequests,
       },
       mrrByMonth: months,
       planDistribution,
@@ -330,6 +332,83 @@ const convertPaid = asyncHandler(async (req, res) => {
   res.json({ success: true, data: { id: w._id, plan: w.plan, status: w.status } });
 });
 
+// GET /api/architect/trial-requests — pending self-registrations
+const listTrialRequests = asyncHandler(async (req, res) => {
+  const pending = await Workspace.find({ status: 'pending' })
+    .sort({ 'signup.requestedAt': -1, createdAt: -1 })
+    .populate('adminId', 'name email')
+    .lean();
+  res.json({
+    success: true,
+    data: {
+      items: pending.map((w) => ({
+        id: w._id,
+        brandName: w.brand?.name,
+        adminName: w.adminId?.name,
+        adminEmail: w.adminId?.email,
+        phone: w.signup?.phone || null,
+        requestedAt: w.signup?.requestedAt || w.createdAt,
+      })),
+      total: pending.length,
+    },
+  });
+});
+
+// PUT /api/architect/workspaces/:id/approve — { trialDays=30, plan='pro' }
+const approveRequest = asyncHandler(async (req, res) => {
+  const trialDays = [7, 14, 30, 60, 90].includes(Number(req.body.trialDays)) ? Number(req.body.trialDays) : 30;
+  const plan = ['starter', 'pro', 'enterprise'].includes(req.body.plan) ? req.body.plan : 'pro';
+
+  const ws = await Workspace.findById(req.params.id).populate('adminId', 'name email');
+  if (!ws) throw AppError.notFound('Workspace not found');
+  if (ws.status !== 'pending') throw AppError.badRequest('This workspace is not pending approval');
+
+  ws.plan = plan;
+  ws.agentLimit = getAgentLimit(plan);
+  ws.status = 'active';
+  ws.trial = {
+    enabled: true,
+    plan,
+    expiresAt: new Date(Date.now() + trialDays * DAY),
+    createdByArchitect: false,
+  };
+  ws.signup.approvedAt = new Date();
+  ws.signup.approvedBy = req.user._id;
+  await ws.save();
+
+  await User.updateOne({ _id: ws.adminId._id }, { $set: { isActive: true } });
+
+  await sendEmail({
+    to: ws.adminId.email,
+    ...trialApprovedSelf({
+      brand: ws.brand,
+      loginUrl: `${process.env.FRONTEND_URL}/login`,
+      expiresAt: ws.trial.expiresAt,
+      whatsapp: process.env.ARCHITECT_WHATSAPP,
+    }),
+  });
+
+  res.json({ success: true, data: { id: ws._id, status: ws.status, expiresAt: ws.trial.expiresAt } });
+});
+
+// PUT /api/architect/workspaces/:id/reject
+const rejectRequest = asyncHandler(async (req, res) => {
+  const ws = await Workspace.findById(req.params.id).populate('adminId', 'name email');
+  if (!ws) throw AppError.notFound('Workspace not found');
+  if (ws.status !== 'pending') throw AppError.badRequest('This workspace is not pending approval');
+
+  ws.status = 'inactive';
+  ws.signup.rejectedAt = new Date();
+  await ws.save();
+
+  await sendEmail({
+    to: ws.adminId.email,
+    ...trialRejected({ brand: ws.brand, whatsapp: process.env.ARCHITECT_WHATSAPP }),
+  });
+
+  res.json({ success: true, data: { id: ws._id, status: ws.status } });
+});
+
 // GET /api/architect/billing
 const billing = asyncHandler(async (req, res) => {
   const paymentsEnabled = process.env.PAYMENTS_ENABLED === 'true';
@@ -353,5 +432,8 @@ module.exports = {
   setPlan,
   extendTrial,
   convertPaid,
+  listTrialRequests,
+  approveRequest,
+  rejectRequest,
   billing,
 };

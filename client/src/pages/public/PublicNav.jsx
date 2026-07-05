@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { whatsappUrl } from '../../constants/config';
 
 export default function PublicNav() {
   return (
@@ -15,14 +14,12 @@ export default function PublicNav() {
           <Link to="/login" className="text-white/70 hover:text-white text-sm">
             Login
           </Link>
-          <a
-            href={whatsappUrl('Hi, I would like to start a free EstateCore CRM trial.')}
-            target="_blank"
-            rel="noreferrer"
+          <Link
+            to="/register"
             className="px-4 py-2 rounded-xl bg-accent text-[#0B0F1A] font-semibold text-sm hover:opacity-90"
           >
             Start Free Trial
-          </a>
+          </Link>
         </div>
       </div>
     </nav>

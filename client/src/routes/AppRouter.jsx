@@ -12,11 +12,13 @@ import PageLoader from '../components/layout/PageLoader';
 const Landing = lazy(() => import('../pages/public/Landing'));
 const Pricing = lazy(() => import('../pages/public/Pricing'));
 const Login = lazy(() => import('../pages/public/Login'));
+const Register = lazy(() => import('../pages/public/Register'));
 const ClientPortal = lazy(() => import('../pages/portal/ClientPortal'));
 
 const ArchDashboard = lazy(() => import('../pages/architect/ArchDashboard'));
 const ArchWorkspaces = lazy(() => import('../pages/architect/ArchWorkspaces'));
 const ArchBilling = lazy(() => import('../pages/architect/ArchBilling'));
+const TrialRequests = lazy(() => import('../pages/architect/TrialRequests'));
 
 const AdminDashboard = lazy(() => import('../pages/admin/AdminDashboard'));
 const AgentDashboard = lazy(() => import('../pages/agent/AgentDashboard'));
@@ -53,6 +55,7 @@ export default function AppRouter() {
         <Route path="/" element={<Landing />} />
         <Route path="/pricing" element={<Pricing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/portal/:token" element={<ClientPortal />} />
         <Route path="/home" element={<ProtectedRoute><HomeRedirect /></ProtectedRoute>} />
 
@@ -64,6 +67,10 @@ export default function AppRouter() {
         <Route
           path="/architect/workspaces"
           element={<ProtectedRoute><RoleRoute roles="architect"><ArchWorkspaces /></RoleRoute></ProtectedRoute>}
+        />
+        <Route
+          path="/architect/requests"
+          element={<ProtectedRoute><RoleRoute roles="architect"><TrialRequests /></RoleRoute></ProtectedRoute>}
         />
         <Route
           path="/architect/billing"

@@ -49,9 +49,9 @@ export default function Landing() {
             Capture leads, move deals, and close faster — with a CRM you can brand as your own.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-9">
-            <a href={whatsappUrl('Hi, I would like to start a free EstateCore CRM trial.')} target="_blank" rel="noreferrer" className="px-7 py-3 rounded-xl bg-accent text-[#0B0F1A] font-semibold hover:opacity-90">
+            <Link to="/register" className="px-7 py-3 rounded-xl bg-accent text-[#0B0F1A] font-semibold hover:opacity-90">
               Start Free Trial
-            </a>
+            </Link>
             <Link to="/pricing" className="px-7 py-3 rounded-xl bg-white/10 hover:bg-white/15 font-semibold">
               See Pricing
             </Link>

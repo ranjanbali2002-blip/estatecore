@@ -1,6 +1,6 @@
+import { Link } from 'react-router-dom';
 import { PLANS, PLAN_ORDER } from '../../constants/plans';
 import { formatINR } from '../../utils/formatINR';
-import { whatsappUrl } from '../../constants/config';
 
 export default function PricingCards() {
   return (
@@ -32,16 +32,14 @@ export default function PricingCards() {
                 </li>
               ))}
             </ul>
-            <a
-              href={whatsappUrl(`Hi, I'm interested in the ${plan.name} plan for EstateCore CRM.`)}
-              target="_blank"
-              rel="noreferrer"
+            <Link
+              to="/register"
               className={`text-center px-4 py-2.5 rounded-xl font-semibold transition-opacity hover:opacity-90 ${
                 plan.recommended ? 'bg-accent text-[#0B0F1A]' : 'bg-white/10 text-white'
               }`}
             >
               Start Free Trial
-            </a>
+            </Link>
           </div>
         );
       })}

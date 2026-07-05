@@ -199,6 +199,69 @@ function subscriptionCancelled({ brand, periodEnd, resubscribeUrl }) {
   };
 }
 
+// 10. Trial request received (to applicant, self-registration)
+function trialRequestReceived({ brand, name }) {
+  const body = `
+    <p>Hi ${name},</p>
+    <p>Thanks for registering for a free ${brand.name} CRM trial. Your request has been received and is
+    <strong>pending approval</strong>.</p>
+    <p>You'll get another email the moment it's approved — then you can log in with the email and password
+    you just chose.</p>`;
+  return {
+    subject: `We received your ${brand.name} CRM trial request`,
+    html: baseLayout({ brand, heading: 'Trial request received', bodyHtml: body }),
+  };
+}
+
+// 11. New trial request (to architect)
+function newTrialRequestArchitect({ brandName, name, email, phone, panelUrl }) {
+  const brand = { name: 'EstateCore', accentColor: DEFAULT_ACCENT };
+  const body = `
+    <p>A new trial request just came in:</p>
+    <div style="background:#0B0F1A;border-radius:10px;padding:16px;margin:16px 0;border:1px solid rgba(255,255,255,0.06);">
+      <p style="margin:4px 0;"><strong>Brand:</strong> ${brandName}</p>
+      <p style="margin:4px 0;"><strong>Name:</strong> ${name}</p>
+      <p style="margin:4px 0;"><strong>Email:</strong> ${email}</p>
+      <p style="margin:4px 0;"><strong>Phone:</strong> ${phone || '—'}</p>
+    </div>
+    ${button('Review in Architect panel', panelUrl)}`;
+  return {
+    subject: `New trial request — ${brandName}`,
+    html: baseLayout({ brand, heading: 'New trial request', bodyHtml: body }),
+  };
+}
+
+// 12. Trial approved (to self-registered applicant — no password, they set their own)
+function trialApprovedSelf({ brand, loginUrl, expiresAt, whatsapp }) {
+  const accent = brand.accentColor || DEFAULT_ACCENT;
+  const wa = whatsappLink(whatsapp, `Hi, I have a question about my ${brand.name} CRM trial.`);
+  const body = `
+    <p>Great news — your ${brand.name} CRM trial has been <strong>approved</strong>! 🎉</p>
+    <p>Log in with the email and password you registered with. Your trial runs until
+    <strong>${fmtDate(expiresAt)}</strong>.</p>
+    ${button('Log in to your CRM', loginUrl, accent)}
+    <p style="font-size:13px;">Questions? <a href="${wa}" style="color:${accent};">Chat with us on WhatsApp</a>.</p>`;
+  return {
+    subject: `Your ${brand.name} CRM trial is approved`,
+    html: baseLayout({ brand, heading: 'Your trial is approved', bodyHtml: body }),
+  };
+}
+
+// 13. Trial request rejected
+function trialRejected({ brand, whatsapp }) {
+  const accent = brand.accentColor || DEFAULT_ACCENT;
+  const wa = whatsappLink(whatsapp, `Hi, I'd like to follow up on my ${brand.name} CRM trial request.`);
+  const body = `
+    <p>Thank you for your interest in ${brand.name} CRM.</p>
+    <p>We're unable to activate your trial automatically at this time. If you think this is a mistake or
+    would like to discuss, please reach out.</p>
+    ${button('Contact us on WhatsApp', wa, accent)}`;
+  return {
+    subject: `About your ${brand.name} CRM trial request`,
+    html: baseLayout({ brand, heading: 'Trial request update', bodyHtml: body }),
+  };
+}
+
 module.exports = {
   trialWelcome,
   agentWelcome,
@@ -209,4 +272,8 @@ module.exports = {
   taskReminder,
   paymentFailed,
   subscriptionCancelled,
+  trialRequestReceived,
+  newTrialRequestArchitect,
+  trialApprovedSelf,
+  trialRejected,
 };

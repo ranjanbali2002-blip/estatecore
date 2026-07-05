@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PageWrapper from '../../components/layout/PageWrapper';
 import StatCard from '../../components/ui/StatCard';
 import Card from '../../components/ui/Card';
@@ -32,10 +33,12 @@ export default function ArchDashboard() {
   return (
     <PageWrapper title="Architect Dashboard">
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link to="/architect/requests" className="block">
+          <StatCard icon="📥" label="Pending Requests" value={kpis.pendingRequests ?? 0} hint="Tap to review" />
+        </Link>
         <StatCard icon="🏢" label="Active Workspaces" value={kpis.totalActiveWorkspaces} />
         <StatCard icon="🧪" label="Trial Workspaces" value={kpis.trialWorkspaces} />
         <StatCard icon="⏳" label="Expiring This Week" value={kpis.expiringThisWeek} />
-        <StatCard icon="💰" label="MRR" value={formatINR(kpis.mrr)} hint="₹0 in Phase 1" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4 mt-4">

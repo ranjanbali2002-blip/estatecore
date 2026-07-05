@@ -16,4 +16,12 @@ const loginRules = [
   body('password').isString().notEmpty().withMessage('Password required'),
 ];
 
-module.exports = { loginRules, strongPassword };
+const registerRules = [
+  body('name').isString().trim().notEmpty().withMessage('Full name required'),
+  body('brandName').isString().trim().notEmpty().withMessage('Agency / brand name required'),
+  body('email').isEmail().withMessage('Valid email required').normalizeEmail(),
+  strongPassword,
+  body('phone').optional({ values: 'falsy' }).isString().trim(),
+];
+
+module.exports = { loginRules, registerRules, strongPassword };

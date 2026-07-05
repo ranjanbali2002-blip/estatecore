@@ -17,6 +17,9 @@ router.put('/workspaces/:id/status', validateObjectId(), ctrl.setStatus);
 router.put('/workspaces/:id/plan', validateObjectId(), ctrl.setPlan);
 router.put('/workspaces/:id/extend-trial', validateObjectId(), ctrl.extendTrial);
 router.put('/workspaces/:id/convert-paid', validateObjectId(), ctrl.convertPaid);
+router.get('/trial-requests', ctrl.listTrialRequests);
+router.put('/workspaces/:id/approve', validateObjectId(), ctrl.approveRequest);
+router.put('/workspaces/:id/reject', validateObjectId(), ctrl.rejectRequest);
 router.get('/billing', ctrl.billing);
 
 module.exports = router;

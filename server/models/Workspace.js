@@ -17,9 +17,20 @@ const workspaceSchema = new mongoose.Schema(
     agentLimit: { type: Number, default: 2 },
     status: {
       type: String,
-      enum: ['active', 'inactive', 'trial_expired', 'payment_failed'],
+      // 'pending' = self-registered, awaiting architect approval
+      enum: ['pending', 'active', 'inactive', 'trial_expired', 'payment_failed'],
       default: 'active',
       index: true,
+    },
+
+    // Self-service signup lifecycle (public /register → architect approval)
+    signup: {
+      selfRegistered: { type: Boolean, default: false },
+      phone: { type: String, trim: true },
+      requestedAt: { type: Date },
+      approvedAt: { type: Date },
+      approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      rejectedAt: { type: Date },
     },
 
     trial: {

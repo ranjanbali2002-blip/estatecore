@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AuthLayout from '../../components/layout/AuthLayout';
 import { Input } from '../../components/ui/Field';
 import Button from '../../components/ui/Button';
@@ -73,9 +73,7 @@ export default function Login() {
         </p>
         <p>
           Don&apos;t have an account?{' '}
-          <a href={whatsappUrl('Hi, I would like to start a free EstateCore CRM trial.')} target="_blank" rel="noreferrer" className="text-accent">
-            Request a trial
-          </a>
+          <Link to="/register" className="text-accent">Start your free trial</Link>
         </p>
       </div>
     </AuthLayout>

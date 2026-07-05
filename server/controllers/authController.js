@@ -2,6 +2,9 @@ const User = require('../models/User');
 const Workspace = require('../models/Workspace');
 const AppError = require('../utils/AppError');
 const asyncHandler = require('../utils/asyncHandler');
+const logger = require('../utils/logger');
+const { sendEmail } = require('../utils/email');
+const { trialRequestReceived, newTrialRequestArchitect } = require('../utils/emailTemplates');
 const {
   signAccessToken,
   issueRefreshToken,
@@ -66,6 +69,16 @@ const login = asyncHandler(async (req, res) => {
   }
 
   if (!user.isActive) {
+    // Distinguish a pending self-registration from a deactivated account
+    if (user.workspaceId) {
+      const ws = await Workspace.findById(user.workspaceId).select('status signup');
+      if (ws && ws.status === 'pending') {
+        throw AppError.forbidden(
+          'Your free trial request is pending approval. You will receive an email once it is approved.',
+          'PENDING_APPROVAL'
+        );
+      }
+    }
     throw AppError.forbidden('Your account has been deactivated');
   }
 
@@ -137,4 +150,66 @@ const me = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { login, refresh, logout, me, REFRESH_COOKIE, publicUser, workspaceSummary };
+// POST /api/auth/register — public self-service trial request (awaits approval)
+const registerTrial = asyncHandler(async (req, res) => {
+  const { name, email, password, brandName, phone } = req.body;
+
+  const existing = await User.findOne({ email });
+  if (existing) {
+    throw AppError.badRequest('An account with this email already exists', 'VALIDATION_ERROR', [
+      { field: 'email', message: 'Email already registered' },
+    ]);
+  }
+
+  // Create the admin as INACTIVE and the workspace as PENDING until an architect approves.
+  const admin = await User.create({
+    role: 'admin',
+    name,
+    email,
+    password, // hashed once by the User pre-save hook
+    isActive: false,
+  });
+
+  let workspace;
+  try {
+    workspace = await Workspace.create({
+      adminId: admin._id,
+      plan: 'starter',
+      agentLimit: 2,
+      status: 'pending',
+      brand: { name: brandName, accentColor: '#C9A84C' },
+      signup: { selfRegistered: true, phone: phone || undefined, requestedAt: new Date() },
+    });
+    admin.workspaceId = workspace._id;
+    await admin.save();
+  } catch (err) {
+    await User.deleteOne({ _id: admin._id });
+    throw err;
+  }
+
+  // Notify the applicant + the architect (best-effort)
+  await sendEmail({
+    to: email,
+    ...trialRequestReceived({ brand: workspace.brand, name }),
+  });
+  if (process.env.ARCHITECT_EMAIL) {
+    await sendEmail({
+      to: process.env.ARCHITECT_EMAIL,
+      ...newTrialRequestArchitect({
+        brandName,
+        name,
+        email,
+        phone,
+        panelUrl: `${process.env.FRONTEND_URL}/architect/requests`,
+      }),
+    });
+  }
+
+  logger.info('Trial request registered', { email, brandName, workspaceId: workspace._id.toString() });
+  res.status(201).json({
+    success: true,
+    data: { message: 'Registration received. Your trial is pending approval.', pending: true },
+  });
+});
+
+module.exports = { login, refresh, logout, me, registerTrial, REFRESH_COOKIE, publicUser, workspaceSummary };

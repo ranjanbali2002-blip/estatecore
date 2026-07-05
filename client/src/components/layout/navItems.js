@@ -4,6 +4,7 @@ export function navForRole(role, workspace) {
   if (role === 'architect') {
     return [
       { to: '/architect/dashboard', label: 'Dashboard', icon: '📊' },
+      { to: '/architect/requests', label: 'Requests', icon: '📥' },
       { to: '/architect/workspaces', label: 'Workspaces', icon: '🏢' },
       { to: '/architect/billing', label: 'Billing', icon: '💳' },
     ];
